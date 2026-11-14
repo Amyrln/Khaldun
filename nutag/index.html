@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1B1640">
+<title>Миний нутаг — Халдун</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<main id="game" aria-label="Миний нутаг: 3D тал нутаг">
+  <canvas id="cv" aria-hidden="true"></canvas>
+
+  <!-- always visible: exit (top left) and settings (top right) -->
+  <button id="exitBtn" class="round glass" type="button" aria-label="Гарах">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Гарах</span></button>
+  <button id="basketBtn" class="round glass" type="button" aria-label="Миний сагс"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16l-1.6 9H5.6z"/><path d="M8 10l4-6 4 6"/></svg><b id="basketN">0</b></button>
+  <button id="helpBtn" class="round glass" type="button" aria-label="Тайлбар: яаж тоглох, уламжлал" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.2v.1"/></svg></button>
+  <button id="setBtn" class="round glass" type="button" aria-label="Тохиргоо" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3L5.5 5.5"/></svg></button>
+
+  <!-- walking stick (touch) -->
+  <div id="joy" class="joy" aria-label="Алхах" role="application"><i id="knob"></i></div>
+
+  <!-- one context button: ride, get off, rest by the fire, enter the ger... -->
+  <div id="acts">
+    <!-- барьж буй зүйл (үйлдлийн товчны дээр, давхцахгүй) -->
+    <div id="items" class="items" aria-live="polite" hidden></div>
+    <div id="gait" class="seg glass" role="group" aria-label="Морины алхаа" hidden>
+      <button type="button" data-g="1" aria-pressed="true">Шогших</button><button type="button" data-g="2" aria-pressed="false">Давхих</button></div>
+    <button id="actBtn" class="act" type="button" hidden></button>
+  </div>
+
+  <p id="hint" class="hint glass" role="status" aria-live="polite" hidden></p>
+  <div id="hearts" aria-hidden="true"></div>
+
+  <!-- performance numbers (settings → «Хэмжилт харуулах») -->
+  <pre id="perf" class="perf" hidden></pre>
+
+  <!-- тайлбар: яаж тоглох вэ?, Монгол өв, уламжлал, газрын зураг (агуулгыг js/help.js-ээс бүтээнэ) -->
+  <section id="help" class="sheet glass" role="dialog" aria-modal="true" aria-label="Тайлбар" hidden>
+    <header><b>Тайлбар</b><button class="x" type="button" data-hclose aria-label="Хаах">×</button></header>
+    <div class="seg tabs" role="group" aria-label="Хэсэг"><button type="button" data-htab="play" aria-pressed="true">Яаж тоглох вэ?</button><button type="button" data-htab="trad" aria-pressed="false">Монгол өв, уламжлал</button><button type="button" data-htab="map" aria-pressed="false">Газрын зураг</button></div>
+    <div id="helpBody" class="helpbody"></div>
+  </section>
+
+  <!-- settings -->
+  <section id="settings" class="sheet glass" role="dialog" aria-modal="true" aria-label="Тохиргоо" hidden>
+    <header><b>Тохиргоо</b><button class="x" type="button" data-close aria-label="Хаах">×</button></header>
+    <div class="row"><span>Графикийн чанар</span>
+      <div class="seg" id="qSeg" role="group" aria-label="Графикийн чанар">
+        <button type="button" data-q="auto">Авто</button><button type="button" data-q="low">Бага</button><button type="button" data-q="medium">Дунд</button><button type="button" data-q="high">Өндөр</button></div></div>
+    <p class="note" id="qNote"></p>
+    <div class="row"><span>Цаг</span>
+      <div class="seg" id="tSeg" role="group" aria-label="Цаг">
+        <button type="button" data-t="cycle">Солигдоно</button><button type="button" data-t="dawn">Өглөө</button><button type="button" data-t="day">Өдөр</button><button type="button" data-t="night">Орой</button></div></div>
+    <label class="row"><span>Байгалийн чимээ</span><input type="checkbox" id="sndSw" class="sw"></label>
+    <label class="row"><span>Хэмжилт харуулах</span><input type="checkbox" id="perfSw" class="sw"></label>
+    <div class="row"><span>Гэр</span><button type="button" class="pill" id="gbReset">Гэрээ шинээр барих</button></div>
+    <p class="note" id="gbNote" aria-live="polite"></p>
+    <p class="note">Тоглоом таны байрлал, тохиргоог зөвхөн энэ төхөөрөмжид хадгална. Хувийн тэмдэглэл цуглуулахгүй.</p>
+    <!-- CC BY 4.0 attribution, the same text as in the Jalair app -->
+    <details class="credits">
+      <summary>3D загваруудын эх сурвалж</summary>
+      <p>• «Realistic Woolly Sheep - Thick Curled Fleece» — Pigcraft, Sketchfab · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Өөрчилсөн: хэмжээ, хөдөлгөөнийг тоглоомд тааруулж, зарим хонины өнгийг өөрчилсөн.</p>
+      <p>• «<a href="https://sketchfab.com/3d-models/horse-a6f860e43e364619bccb174a1ac7d0c9" target="_blank" rel="noopener">Horse</a>» — henrysteve973, Sketchfab · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Өөрчилсөн: хар зүсэм, дэл (BlackStar v12, Халдун), дэлний ширхгийн талыг хассан, сүргийн морьдыг өөр зүсмээр будсан.</p>
+      <p>• «<a href="https://sketchfab.com/3d-models/forest-landscape-2aeb815bbdd44824a5667cde77e7ca9c" target="_blank" rel="noopener">Forest landscape</a>» — <a href="https://sketchfab.com/thesidekick" target="_blank" rel="noopener">Lassi Kaukonen</a>, Sketchfab · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Өөрчилсөн: эрэг, хожуулыг авч, налууг тэгшилж, гэрийн орчны газрын зураг болгосон.</p>
+      <p>• «<a href="https://sketchfab.com/3d-models/grass-f2f2bddb2728483a9105c5f5114eb15e" target="_blank" rel="noopener">Grass</a>» — <a href="https://sketchfab.com/Cosmic_dust" target="_blank" rel="noopener">Cosmic_dust</a>, Sketchfab · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Өөрчилсөн: навчны зургуудыг тоглоомын өвсний ширхэгт ашигласан.</p>
+      <p>Хурга нь хонины загварыг жижигрүүлсэн хувилбар. Хашаа, гадна гал, овоо, хийморь, цэцэг, чулууг тоглоомын кодоор бүтээсэн.</p>
+    </details>
+  </section>
+
+  <!-- 2D: resting by the fire -->
+  <section id="rest" class="rest" role="dialog" aria-modal="false" aria-label="Галын дэргэд" hidden>
+    <div class="card glass" id="restMenu">
+      <header><b id="restTitle">Галын дэргэд</b><button class="x" type="button" data-stand aria-label="Босох">×</button></header>
+      <p class="sub" id="restSub">Хүсвэл нэгийг сонго. Хүсэхгүй бол зүгээр л суугаад галаа харж болно.</p>
+      <div class="opts">
+        <button type="button" data-ex="stretch"><b>1 минут сунгалт</b><small>Зөөлөн, удаан хөдөлгөөн</small></button>
+        <button type="button" data-ex="breath"><b>Амьсгалаа ажиглах</b><small>Тайван амьсгал, 1 минут</small></button>
+        <button type="button" data-ex="goal"><b>Өнөөдрийн жижиг зорилго</b><small>Бодоход л хангалттай</small></button>
+        <button type="button" data-ex="sit"><b>Зүгээр л амрах</b><small id="sitSub">Гал, салхины чимээ</small></button>
+      </div>
+    </div>
+    <div class="card glass" id="restRun" hidden>
+      <header><b id="exTitle"></b><button class="x" type="button" data-stop aria-label="Зогсоох">×</button></header>
+      <div class="ring" id="exRing"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="exArc"/></svg>
+        <span id="exBig"></span></div>
+      <div id="exFig" class="exfig" aria-hidden="true"></div>
+      <p id="exText" class="ex-text" aria-live="polite"></p>
+      <div class="row2"><button type="button" class="btn ghost" id="exPause">Түр зогсоох</button><button type="button" class="btn" id="exDone">Дуусгах</button></div>
+    </div>
+    <button type="button" class="btn glass stand" id="standBtn" hidden>Босох</button>
+  </section>
+
+  <!-- 2D: the wish tree. Nothing is written or stored except the ribbon colour -->
+  <section id="wish" class="rest" role="dialog" aria-modal="false" aria-label="Хүслийн мод" hidden>
+    <div class="card glass">
+      <header><b>Хүслийн мод</b><button class="x" type="button" data-wclose aria-label="Хаах">×</button></header>
+      <p class="sub">Нэг хүслээ чимээгүйхэн бодоорой. Бичих, хэнд ч хэлэх шаардлагагүй. Дараа нь хадгаа сонгоод уяарай.</p>
+      <div class="khadag" role="group" aria-label="Хадгийн өнгө">
+        <button type="button" data-kh="0"><i style="background:#2F7BE0"></i>Цэнхэр</button>
+        <button type="button" data-kh="3"><i style="background:#F4F0E4"></i>Цагаан</button>
+        <button type="button" data-kh="5"><i style="background:#F2C744"></i>Шар</button>
+        <button type="button" data-kh="7"><i style="background:#3BA55C"></i>Ногоон</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- айраг: гүү саах (зэлд) -->
+  <section id="milk" class="rest" role="dialog" aria-modal="false" aria-label="Гүү саах" hidden>
+    <div class="card glass">
+      <header><b>Гүү саах</b><button class="x" type="button" data-mclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="milkText">Унага нь хажууд нь зогсож байна. Товчийг дарж зөөлөн сааж, хувингаа дүүргээрэй.</p>
+      <div class="pailrow">
+        <div class="pail" aria-hidden="true"><i id="milkFill"></i></div>
+        <button id="milkBtn" class="btn big" type="button">Саах</button>
+      </div>
+      <p class="sub small"><b id="milkN">0 / 8</b> · <span id="milkFact"></span></p>
+    </div>
+  </section>
+
+  <!-- айраг: хөхүүрт бүлэх (гэрт) -->
+  <section id="churn" class="rest" role="dialog" aria-modal="false" aria-label="Айраг бүлэх" hidden>
+    <div class="card glass">
+      <header><b>Айраг бүлэх</b><button class="x" type="button" data-cclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="churnTip">Гэрэлтэх цагираг шиг жигд хэмээр бүлээрэй. Яарах хэрэггүй.</p>
+      <div class="churnrow">
+        <div class="ring cring" aria-hidden="true"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" id="churnArc" cx="60" cy="60" r="52"/></svg>
+          <span><b id="churnN">0</b><small>/ 5000</small></span></div>
+        <button id="churnBtn" class="bulbtn" type="button" aria-label="Бүлэх"><i class="pulse" aria-hidden="true"></i>Бүлэх</button>
+      </div>
+      <p class="sub small fact"><b>Мэдсэн үү?</b> <span id="churnFact"></span></p>
+      <button id="churnDone" class="btn" type="button" hidden>Исгэх</button>
+    </div>
+  </section>
+
+  <!-- ааруул: тараг буцалгах (гэрийн тулган дээр) -->
+  <section id="boil" class="rest" role="dialog" aria-modal="false" aria-label="Тараг буцалгах" hidden>
+    <div class="card glass">
+      <header><b>Тараг буцалгах</b><button class="x" type="button" data-bclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="boilTip">Хэдэн өдөр цуглуулсан тарагаа тогоонд юүллээ. Зөөлөн гал дээр тасралтгүй хутгаарай: товчийг дарж барина.</p>
+      <div class="churnrow">
+        <div class="pot" aria-hidden="true"><i id="boilCurd"></i><b id="boilWhey"></b><em></em></div>
+        <button id="boilBtn" class="bulbtn" type="button" aria-label="Дарж барин хутгах">Хутгах<small>дарж барина</small></button>
+      </div>
+      <div class="bar" aria-hidden="true"><i id="boilBar"></i></div>
+      <p class="sub small fact"><b>Мэдсэн үү?</b> <span id="boilFact"></span></p>
+      <button id="boilDone" class="btn" type="button" hidden>Уутанд юүлж шахах</button>
+    </div>
+  </section>
+
+  <!-- ааруул: буцалгасан ээдмээ уутанд юүлэх → шар усыг шүүх → банз, чулуугаар дарах -->
+  <section id="bag" class="rest" role="dialog" aria-modal="false" aria-label="Аарцаа уутанд юүлэх" hidden>
+    <div class="card glass">
+      <header><b id="bagTitle">Аарцаа уутанд юүлэх</b><span class="step" id="bagStep">1 / 3</span><button class="x" type="button" data-gclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="bagTip"></p>
+      <svg id="bagSvg" class="bagscene" viewBox="0 0 240 150" aria-hidden="true">
+        <defs><clipPath id="bgClip"><path d="M150 76 Q146 104 152 128 Q168 140 186 128 Q192 104 188 76 Z"/></clipPath></defs>
+        <g id="bgS1">
+          <g id="bgPot"><path d="M28 64 L102 64 L96 112 Q65 122 34 112 Z" fill="#3B332C"/><ellipse cx="65" cy="64" rx="37" ry="8" fill="#2E2722"/><ellipse cx="65" cy="65" rx="31" ry="5" fill="#F5F1E6"/><rect x="20" y="60" width="90" height="5" rx="2.5" fill="#4A4038"/></g>
+          <path id="bgStream" d="M103 62 Q140 56 166 84" stroke="#F5F1E6" stroke-width="7" fill="none" stroke-linecap="round" opacity="0"/>
+        </g>
+        <g id="bgS2"><line x1="169" y1="6" x2="169" y2="70" stroke="#8A6236" stroke-width="3"/><rect x="150" y="2" width="38" height="6" rx="3" fill="#8A6236"/>
+          <ellipse id="bgBowl" cx="169" cy="140" rx="24" ry="6" fill="#A87A4C"/><ellipse id="bgWhey" cx="169" cy="138" rx="0" ry="3.5" fill="#E6D58A"/>
+          <g class="drip"><circle cx="166" cy="132" r="2.4" fill="#E6D58A"/><circle cx="171" cy="132" r="2" fill="#E6D58A"/><circle cx="168" cy="132" r="2.2" fill="#E6D58A"/></g></g>
+        <g id="bgBag"><path d="M150 76 Q146 104 152 128 Q168 140 186 128 Q192 104 188 76 Z" fill="#EDE5D3" stroke="#B9A98A" stroke-width="2"/>
+          <rect id="bgFill" x="140" y="132" width="60" height="0" fill="#F8F4EA" clip-path="url(#bgClip)"/><path id="bgTie" d="M156 76 Q169 66 182 76" stroke="#8A6236" stroke-width="3" fill="none" opacity="0"/></g>
+        <g id="bgS3"><rect x="118" y="124" width="104" height="10" rx="2" fill="#A87A4C"/><rect x="112" y="134" width="116" height="6" rx="2" fill="#7A5A3A" opacity=".55"/>
+          <g id="bgBoard"><rect x="118" y="88" width="104" height="10" rx="2" fill="#B88A55"/></g>
+          <g id="bgStone"><path d="M140 88 Q142 62 170 60 Q200 62 200 88 Z" fill="#8A8C88"/><path d="M152 70 Q168 64 186 70" stroke="#A3A5A0" stroke-width="3" fill="none"/></g>
+          <g class="drip side"><circle cx="122" cy="122" r="2" fill="#E6D58A"/><circle cx="218" cy="122" r="2" fill="#E6D58A"/></g></g>
+      </svg>
+      <div class="bar" aria-hidden="true"><i id="bagBar"></i></div>
+      <p class="sub small fact"><b>Хугацаа:</b> <span id="bagTime"></span></p>
+      <button id="bagBtn" class="btn" type="button"></button>
+    </div>
+  </section>
+
+  <!-- сур харваа: буудлагын тоглоом шиг — камер байн руу томорно, онилгоо голд, амьсгалын заагч хажууд -->
+  <section id="archHud" class="archhud" aria-label="Сур харваа" hidden>
+    <div id="archPad" class="archpad" aria-hidden="true"></div>
+    <svg id="arReticle" class="reticle" viewBox="-30 -30 60 60" aria-hidden="true"><circle r="17" fill="none" stroke="#fff" stroke-width="2.4" opacity=".9"/><circle r="17" fill="none" stroke="#000" stroke-width="1" opacity=".35"/>
+      <path d="M-27 0h8M19 0h8M0 -27v8M0 19v8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle r="2.6" fill="#FFC24A"/></svg>
+    <div class="archtop"><p id="archTip" class="archtip" role="status"></p><p id="archFact" class="archfact"></p></div>
+    <div class="archbtns"><button id="archFix" class="pill" type="button" hidden>Сураа дахин өрөх</button><button class="x" type="button" data-arclose aria-label="Харваа дуусгах">×</button></div>
+    <div class="breath glass" aria-label="Амьсгал">
+      <svg viewBox="-40 -40 80 80" aria-hidden="true"><circle r="36" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2"/><circle id="brRing" r="14" fill="rgba(134,168,234,.35)" stroke="#9DBAF0" stroke-width="2.5"/></svg>
+      <b id="brText">Бэлэн</b>
+      <ol class="brsteps"><li>Ав · 4</li><li>Барь</li><li>Гарга · 4</li></ol>
+    </div>
+    <div class="drawbar" aria-hidden="true"><i id="drawBar"></i></div>
+    <button id="archBtn" class="archbtn" type="button">Тат</button>
+  </section>
+
+  <!-- шагай: дэвсгэр дээр -->
+  <section id="shagai" class="rest" role="dialog" aria-modal="false" aria-label="Шагай" hidden>
+    <div class="card glass">
+      <header><b>Шагай</b><button class="x" type="button" data-shclose aria-label="Хаах">×</button></header>
+      <div class="seg tabs" role="group" aria-label="Тоглоом"><button type="button" data-sm="ex" aria-pressed="true">Дасгал</button><button type="button" data-sm="race" aria-pressed="false">Морь уралдуулах</button><button type="button" data-sm="fl" aria-pressed="false">Няслах</button></div>
+      <div id="shBody" class="shbody"></div>
+      <p class="sub small fact"><b>Мэдсэн үү?</b> <span id="shFact"></span></p>
+      <button id="shTakeMat" class="btn ghost" type="button">Дэвсгэрээ хураах</button>
+    </div>
+  </section>
+
+  <!-- ааруул: зүсэх, хэвлэх, базах (тавиурын дэргэд) -->
+  <section id="cut" class="rest" role="dialog" aria-modal="false" aria-label="Ааруул тавих" hidden>
+    <div class="card glass">
+      <header><b>Ааруул тавих</b><button class="x" type="button" data-tclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="cutTip">Шахагдаж хэвшсэн аарцаа банзан дээр гаргалаа. Яаж хэлбэржүүлэх вэ?</p>
+      <div class="opts3" id="cutOpts" role="group" aria-label="Ааруулын хэлбэр">
+        <button type="button" data-sty="zuss"><i class="ic zuss" aria-hidden="true"></i><b>Утсаар зүсэх</b><small>Нимгэн зүсмэл</small></button>
+        <button type="button" data-sty="khev"><i class="ic khev" aria-hidden="true"></i><b>Хэвэнд шахах</b><small>Хээтэй дугуй</small></button>
+        <button type="button" data-sty="baz"><i class="ic baz" aria-hidden="true"></i><b>Гараар базах</b><small>Базмал ааруул</small></button>
+      </div>
+      <div class="cutwork" id="cutWork" hidden>
+        <div class="slab" id="cutSlab" aria-hidden="true"></div>
+        <button id="cutBtn" class="btn big" type="button">Зүсэх</button>
+      </div>
+      <p class="sub small"><b id="cutN"></b> <span id="cutFact"></span></p>
+      <button id="cutDone" class="btn" type="button" hidden>Тавиур дээр дэлгэх</button>
+    </div>
+  </section>
+
+  <!-- сагс: хадгалах, амтлах, бэлэглэх -->
+  <section id="basket" class="rest" role="dialog" aria-modal="false" aria-label="Миний сагс" hidden>
+    <div class="card glass">
+      <header><b>Миний сагс</b><button class="x" type="button" data-kclose aria-label="Хаах">×</button></header>
+      <div class="seg tabs" role="group" aria-label="Хэсэг"><button type="button" data-tab="bag" aria-pressed="true">Сагс</button><button type="button" data-tab="give" aria-pressed="false">Бэлэглэх</button><button type="button" data-tab="inbox" aria-pressed="false">Бэлэг <i id="inboxN"></i></button></div>
+      <div data-pane="bag">
+        <div class="bkgrid" id="bkGrid"></div>
+        <p class="sub small" id="bkNote"></p>
+        <div class="row2"><button id="tasteBtn" class="btn ghost" type="button">Амтлах</button><button id="bkGive" class="btn" type="button">Бэлэглэх</button></div>
+      </div>
+      <div data-pane="give" hidden>
+        <p class="sub small">Багийн хэнд?</p><div class="chips" id="gTo"></div>
+        <p class="sub small">Аль ааруулаас, хэдийг?</p><div class="chips" id="gSty"></div>
+        <div class="stepper"><button id="gMinus" type="button" aria-label="Хасах">−</button><b id="gN">1</b><button id="gPlus" type="button" aria-label="Нэмэх">+</button></div>
+        <p class="sub small">Мэндчилгээ</p><div class="chips col" id="gMsg"></div>
+        <button id="gSend" class="btn" type="button" disabled>Илгээх</button>
+        <p class="sub small" id="gNote" aria-live="polite"></p>
+      </div>
+      <div data-pane="inbox" hidden>
+        <p class="sub small"><b>Ирсэн</b></p><div id="gIn" class="glist"></div>
+        <p class="sub small"><b>Илгээсэн</b></p><div id="gOut" class="glist"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ирсэн бэлэг: гэрийн ширээн дээрх боодлыг нээхэд -->
+  <section id="giftOpen" class="rest" role="dialog" aria-modal="false" aria-label="Бэлэг" hidden>
+    <div class="card glass">
+      <header><b id="goTitle">Бэлэг ирлээ!</b><button class="x" type="button" data-oclose aria-label="Хаах">×</button></header>
+      <p class="giftitems"><i class="ic khev" aria-hidden="true"></i><span id="goItems"></span></p>
+      <p class="giftmsg" id="goMsg"></p>
+      <div class="row2"><button id="goKeep" class="btn" type="button">Сагсандаа хадгалах</button><button id="goThank" class="btn ghost" type="button">«Баярлалаа»</button></div>
+      <p class="sub small" id="goNote" aria-live="polite"></p>
+    </div>
+  </section>
+
+
+  <!-- гэр барих: алхам бүрийг гараараа (дарж барих, чирэх, тойруулах, товших) -->
+  <section id="gbuild" class="rest" role="dialog" aria-modal="false" aria-label="Гэр барих" hidden>
+    <div class="card glass gbcard">
+      <header><b id="gbTitle">Гэр барих</b><button class="x" type="button" data-gbclose aria-label="Түр зогсоох">×</button></header>
+      <p class="gbstep" id="gbStepN"></p>
+      <p class="sub" id="gbText"></p>
+      <div id="gbPad" class="gbpad" tabindex="0" role="button">
+        <svg class="gbhand" viewBox="0 0 48 48" aria-hidden="true"><path d="M19 22V9.5a3 3 0 0 1 6 0V21m0-3.5a3 3 0 0 1 6 0V22m0-2a3 3 0 0 1 6 0v8.5C37 37 32 42 25 42h-1.5c-4 0-6.6-1.8-8.8-4.8L9.5 30a3 3 0 0 1 4.6-3.8L19 31" fill="#FFF6E8" stroke="#3A2A55" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="gbarrow" aria-hidden="true"></span>
+        <b id="gbHow"></b><div class="gbtaps" id="gbTaps"></div>
+      </div>
+      <div class="gbbar" aria-hidden="true"><i id="gbBar"></i></div>
+      <p class="sub small fact"><b>Мэдсэн үү?</b> <span id="gbFact"></span></p>
+    </div>
+  </section>
+
+  <!-- дарж барих үйлдэл: айраг утгах, аягалах, ус уух -->
+  <section id="hold" class="rest" role="dialog" aria-modal="false" aria-label="Үйлдэл" hidden>
+    <div class="card glass">
+      <header><b id="holdTitle"></b><button class="x" type="button" data-hdclose aria-label="Хаах">×</button></header>
+      <p class="sub" id="holdTip"></p>
+      <div class="churnrow"><div class="holdicon" id="holdIcon" aria-hidden="true"></div><button id="holdBtn" class="bulbtn" type="button">Утгах<small>дарж барина</small></button></div>
+      <div class="bar" aria-hidden="true"><i id="holdBar"></i></div>
+    </div>
+  </section>
+
+  <!-- авдар: ааруул хадгалах -->
+  <section id="chest" class="rest" role="dialog" aria-modal="false" aria-label="Авдар" hidden>
+    <div class="card glass">
+      <header><b>Авдар</b><button class="x" type="button" data-chclose aria-label="Хаах">×</button></header>
+      <p class="sub small">Сагснаасаа авдарт хийж хадгална, хэрэгтэй үедээ буцааж авна. Сагс → | ← Авдар</p>
+      <div id="chestShg" class="crow shg"></div>
+      <div id="chestRows" class="chestrows"></div>
+    </div>
+  </section>
+
+  <!-- унтах, зүүд -->
+  <div id="sleep" class="sleep" hidden><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <section id="dream" class="dream" role="dialog" aria-modal="true" aria-label="Зүүд" hidden>
+    <div class="card glass">
+      <p class="sub small">Зүүдэндээ… <span id="dreamN"></span></p>
+      <p id="dreamFact" class="dreamfact"></p>
+      <button id="wakeBtn" class="btn" type="button">Сэрэх</button>
+    </div>
+  </section>
+
+  <!-- саамтай хувин барьж явахад -->
+  <p id="carry" class="carry glass" hidden>Саамтай хувин → гэрийн хөхүүрт хийнэ</p>
+
+  <!-- the name of the place, shown for a moment when you arrive -->
+  <p id="place" class="place" aria-live="polite" hidden></p>
+
+  <!-- loading and start -->
+  <section id="load" class="load" aria-live="polite">
+    <div class="load-in">
+      <h1>Миний нутаг</h1>
+      <p class="tag">Тайван нутагтаа зугаалж, хонио хариулж, мориороо зугаал.</p>
+      <div class="bar"><i id="loadBar"></i></div>
+      <p id="loadTxt" class="small">Ачаалж байна…</p>
+      <button id="startBtn" class="btn big" type="button" hidden>Нутагтаа очих</button>
+      <p id="noGl" class="small" hidden>Энэ хөтөч WebGL дэмжихгүй тул 3D нутгийг харуулах боломжгүй байна.</p>
+    </div>
+  </section>
+
+  <!-- after exit -->
+  <section id="bye" class="load" hidden>
+    <div class="load-in"><h1>Дараа уулзъя</h1><p class="tag">Хонь чинь бэлчсээр, гал чинь асаалттай хүлээж байна.</p>
+      <button id="againBtn" class="btn big" type="button">Буцаж очих</button></div>
+  </section>
+  <section id="lost" class="load" hidden><div class="load-in"><p class="tag">3D дэлгэцийг сэргээж байна…</p></div></section>
+</main>
+<section id="gate" class="load" hidden><div class="load-in"><h1>Миний нутаг</h1>
+    <p class="tag">Гал 15 хоног дараалан асаахад энэ тоглоом нээгдэнэ. Өдөр бүр Халдунд тэмдэглэлээ хөтлөөрэй.</p>
+    <a class="btn big" href="../index.html#today" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Халдун руу буцах</a></div></section>
+<script>
+/* түгжээ: Халдун (хуучнаар Жалайр) апп 15 хоног дараалсан галыг шалгаад "jalair.nutag.ok"-г тавина. Нээгдээгүй бол тоглоомын скриптүүдийг огт ачаалахгүй. */
+window.NUTAG_GATE={need:15,back:"../index.html#today",key:"jalair.nutag.ok"};
+(function(){var ok=location.hash==="#jalair";try{ok=ok||localStorage.getItem(NUTAG_GATE.key)==="1";}catch(e){}   /* хадгалалт ажиллахгүй хөтөч дээр ч апп-аас орж ирсэн бол нээнэ */
+  if(!ok){document.getElementById("gate").hidden=false;var l=document.getElementById("load");if(l)l.hidden=true;return;}
+  ["js/quality.js", "js/world.js", "js/map.js", "js/perf.js", "js/sound.js", "js/gifts.js", "js/help.js", "js/nutag.js"].forEach(function(s){var e=document.createElement("script");e.src=s;e.async=false;document.body.appendChild(e);});})();
+</script>
+</body>
+</html>
