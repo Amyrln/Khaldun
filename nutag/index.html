@@ -337,7 +337,7 @@
     <a class="btn big" href="../index.html#today" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Халдун руу буцах</a></div></section>
 <script>
 /* түгжээ: Халдун (хуучнаар Жалайр) апп 15 хоног дараалсан галыг шалгаад "jalair.nutag.ok"-г тавина. Нээгдээгүй бол тоглоомын скриптүүдийг огт ачаалахгүй. */
-window.NUTAG_GATE={need:15,back:"../index.html#today",key:"jalair.nutag.ok"};
+window.NUTAG_GATE={need:15,back:(function(){try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&/turshilt/i.test(r))return r.split("#")[0]+"#today";}catch(e){}return "../index.html#today";})(),key:"jalair.nutag.ok"};
 (function(){var ok=location.hash==="#jalair";try{ok=ok||localStorage.getItem(NUTAG_GATE.key)==="1";}catch(e){}   /* хадгалалт ажиллахгүй хөтөч дээр ч апп-аас орж ирсэн бол нээнэ */
   if(!ok){document.getElementById("gate").hidden=false;var l=document.getElementById("load");if(l)l.hidden=true;return;}
   ["js/quality.js", "js/world.js", "js/map.js", "js/perf.js", "js/sound.js", "js/gifts.js", "js/help.js", "js/nutag.js"].forEach(function(s){var e=document.createElement("script");e.src=s;e.async=false;document.body.appendChild(e);});})();
