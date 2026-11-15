@@ -1209,7 +1209,21 @@ section[data-view="mood"]{min-height:calc(100dvh - 120px);gap:12px}
 .mi-box .fbx{margin-top:0}.mi-empty,.mi-note{margin:0}.mi-care{margin:0;padding:10px 14px;border-radius:14px;background:var(--surface2);font-size:14px;line-height:1.5}
 
 /* дээд мөр: нэвтэрсний дараа гал + тохиргоо л */
-#setBtn:not([hidden])~#sndBtn,#setBtn:not([hidden])~#themeBtn,#setBtn:not([hidden])~#langBtn{display:none}
+#setBtn:not([hidden])~#themeBtn,#setBtn:not([hidden])~#langBtn{display:none}   /* дууны товч тохиргооны хажууд үлдэнэ */
+/* дууны товч дарахад: одоо тоглож буй аялгуу, Дуутай / Дуугүй, аялгуу солих холбоос */
+.np-pop{position:fixed;z-index:1500;width:min(300px,calc(100vw - 24px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:14px;
+  box-shadow:0 18px 40px -18px rgba(30,20,70,.45);display:flex;flex-direction:column;gap:12px;animation:npIn .18s ease-out}
+@keyframes npIn{from{opacity:0;transform:translateY(-6px)}}
+.np-now{display:flex;gap:10px;align-items:flex-start}.np-now p{margin:0;font-size:14px;line-height:1.45}
+.np-eq{display:inline-flex;align-items:flex-end;gap:2px;height:16px;margin-top:2px;flex-shrink:0}.np-eq i{width:3px;height:5px;border-radius:2px;background:var(--plum)}
+.np-eq.on i{animation:npEq .9s ease-in-out infinite alternate}.np-eq.on i:nth-child(2){animation-delay:-.3s}.np-eq.on i:nth-child(3){animation-delay:-.6s}
+@keyframes npEq{to{height:16px}}
+@media (prefers-reduced-motion:reduce){.np-eq.on i{animation:none;height:10px}}
+.np-pop .seg{align-self:stretch;display:flex}.np-pop .seg button{flex:1}
+.np-link{font-size:13.5px;font-weight:600;color:var(--plum);text-decoration:none;align-self:flex-start}
+.np-yt{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);font-weight:700;font-size:14px;text-decoration:none}
+.np-yt svg{width:18px;height:18px;color:var(--plum);flex-shrink:0}.np-yt:active{transform:scale(.98)}
+.tune-pick{display:grid;justify-items:start;gap:6px;padding-bottom:12px}.tune-pick .seg+.small{margin-top:6px}
 .row:has(#setBtn:not([hidden])) #stkBtn{display:none}
 .set-fire{display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:inherit}.set-fire i{font-style:normal;opacity:.5;font-size:20px}
 .sd-box{display:flex;flex-direction:column;gap:10px}.sd-form{display:flex;flex-direction:column;gap:10px}
@@ -2211,7 +2225,7 @@ let AC=null,master=null,soundOn=opts.sound!==false;
 const sndBtn=$(".c2-snd");
 function syncSnd(){sndBtn.innerHTML=soundOn?SPK_ON:SPK_OFF;sndBtn.setAttribute("aria-pressed",String(soundOn));sndBtn.setAttribute("aria-label",soundOn?"Дуу унтраах":"Дуу асаах");}
 syncSnd();
-/* the app's background tune plays under the chapter; this keeps it in step with the sound button */
+/* the chapter's tune (Тохиргоо › Дуу › 2D, 3D тоглоомд) plays under it; this keeps it in step with the sound button */
 const tune=()=>{try{opts.music&&opts.music(soundOn);}catch(_){}};
 tune();
 function audioStart(){if(soundOn)tune();if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
@@ -3265,11 +3279,13 @@ function rhero(o){o=o||{};return `<div class="rhero${o.cls?" "+o.cls:""}">${skyB
   ${o.chars?`<div class="rh-chars">${chGroup(CH10.map(c=>c.id),{size:o.size||58,jitter:10})}</div>`:""}</div>`;}
 
 /* ---------- background music. Two tunes, picked in Тохиргоо › Дуу:
-   "Халдун ая" (default) — an instrumental song, a 90.6 s seamless loop played from khaldun-ay.mp3;
+   "Халдун ая" (default in the app) — «Egshiglyn - Whisper of the Heart» without vocals, a 90.6 s seamless loop played from khaldun-ay.mp3;
    "Тайван тал" — a calm kalimba tune, made in the browser, no files. It also plays if the file can't load (offline).
+   The 2D and 3D chapters have their own tune (default Тайван тал): going in or out, one tune fades out slowly as the other fades in.
    Тайван тал: a kalimba sings a D-major pentatonic melody over its own soft arpeggios, a warm bowed drone (like a far-away khuur)
    and a quiet low bass, in a wide, gentle room. 68 bpm, no drums, nothing sharp; 16 bars (~56 s) that loop. */
 const MUS={on:(()=>{try{return localStorage.getItem("jalair-music")!=="off";}catch(e){return true;}})(),tune:(()=>{try{return localStorage.getItem("jalair-tune")==="taivan"?"taivan":"khaldun";}catch(e){return "khaldun";}})(),
+  tuneGame:(()=>{try{return localStorage.getItem("jalair-tune-game")==="khaldun"?"khaldun":"taivan";}catch(e){return "taivan";}})(),scene:"app",cur:null,
   playing:false,timer:0,t:0,bar:0,out:null,rev:null,resume:false,src:null,gen:0,pos:0,k0:0,raw:null,buf:null,hold:false};
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 const KM={bpm:68,
@@ -3316,27 +3332,34 @@ const KH={url:"khaldun-ay.mp3",a:1,len:3993963/44100,vol:.45};
 function khRaw(){if(!MUS.raw)MUS.raw=fetch(KH.url).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.arrayBuffer();});return MUS.raw;}
 function khBuf(){if(MUS.buf)return Promise.resolve(MUS.buf);
   return khRaw().then(ab=>new Promise((ok,no)=>{const p=AC.decodeAudioData(ab.slice(0),ok,no);if(p&&p.catch)p.catch(no);})).then(b=>{MUS.buf=b;MUS.raw=null;return b;});}
-function khPlay(g){MUS.out.gain.value=.7;
+function khPlay(g,fi){MUS.out.gain.value=.7;
   khBuf().then(b=>{if(!MUS.playing||MUS.gen!==g)return;
     const s=AC.createBufferSource(),v=AC.createGain(),t=AC.currentTime+.05;s.buffer=b;s.loop=true;s.loopStart=KH.a;s.loopEnd=KH.a+KH.len;
-    v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(KH.vol,t+2.2);s.connect(v);v.connect(MUS.out);
+    v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(KH.vol,t+fi);s.connect(v);v.connect(MUS.out);
     s.start(t,KH.a+MUS.pos%KH.len);MUS.src=s;MUS.k0=t-MUS.pos;})
-  .catch(()=>{MUS.raw=null;if(MUS.playing&&MUS.gen===g)kmGo();});}
-function kmGo(){MUS.out.gain.setValueAtTime(.0001,AC.currentTime);MUS.out.gain.exponentialRampToValueAtTime(.7,AC.currentTime+2.2);
+  .catch(()=>{MUS.raw=null;if(MUS.playing&&MUS.gen===g){MUS.cur="taivan";kmGo(fi);npSync();}});}
+function kmGo(fi){MUS.out.gain.setValueAtTime(.0001,AC.currentTime);MUS.out.gain.exponentialRampToValueAtTime(.7,AC.currentTime+fi);
   MUS.rev=kmRev();MUS.t=AC.currentTime+.2;MUS.bar=0;musicTick();MUS.timer=setInterval(musicTick,200);}
-function musicStart(){if(!MUS.on||MUS.playing||MUS.hold)return;ensureAudio();if(!AC)return;
-  MUS.out=AC.createGain();MUS.out.connect(AC.destination);MUS.playing=true;MUS.gen++;
-  if(MUS.tune==="khaldun")khPlay(MUS.gen);else kmGo();syncMusicBtns();}
-function musicStop(){if(!MUS.playing)return;MUS.playing=false;MUS.gen++;clearInterval(MUS.timer);const o=MUS.out,s=MUS.src;MUS.src=null;
+/* the tune for where the teen is now: the app, or a 2D/3D chapter */
+const curTune=()=>MUS.scene==="game"?MUS.tuneGame:MUS.tune;
+function musicStart(fi){if(!MUS.on||MUS.hold)return;ensureAudio();if(MUS.playing||!AC)return;fi=typeof fi==="number"?fi:2.2;
+  MUS.out=AC.createGain();MUS.out.connect(AC.destination);MUS.playing=true;MUS.gen++;MUS.cur=curTune();
+  if(MUS.cur==="khaldun")khPlay(MUS.gen,fi);else kmGo(fi);syncMusicBtns();}
+function musicStop(fo){if(!MUS.playing)return;fo=typeof fo==="number"?fo:.8;MUS.playing=false;MUS.gen++;clearInterval(MUS.timer);MUS.timer=0;const o=MUS.out,s=MUS.src;MUS.src=null;
   if(s)MUS.pos=Math.max(0,AC.currentTime-MUS.k0)%KH.len;
-  try{o.gain.cancelScheduledValues(AC.currentTime);o.gain.setValueAtTime(Math.max(o.gain.value,.0001),AC.currentTime);o.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.8);setTimeout(()=>{try{o.disconnect();}catch(e){}try{s&&s.stop();}catch(e){}},1000);}catch(e){}syncMusicBtns();}
-function tuneSet(t){if(t!=="taivan")t="khaldun";if(t===MUS.tune)return;MUS.tune=t;try{localStorage.setItem("jalair-tune",t);}catch(e){}
-  document.querySelectorAll("[data-tune]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tune===t)));
-  if(MUS.playing){musicStop();setTimeout(musicStart,350);}else if(MUS.on)musicStart();}
-document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-tune]");if(b)tuneSet(b.dataset.tune);});
-/* the 2D chapter: the background tune plays under it and follows the chapter's own sound button.
-   on=true: sound on (a tap, so the audio can wake up); false: muted, hold the tune; null: the chapter closed */
-function musicGame(on){MUS.hold=on===false;if(on===false){musicStop();return;}if(on)ensureAudio();if(MUS.on&&!MUS.playing)musicStart();}
+  try{o.gain.cancelScheduledValues(AC.currentTime);o.gain.setValueAtTime(Math.max(o.gain.value,.0001),AC.currentTime);o.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+fo);setTimeout(()=>{try{o.disconnect();}catch(e){}try{s&&s.stop();}catch(e){}},(fo+.2)*1000);}catch(e){}syncMusicBtns();}
+/* moving between the app and a chapter: if the tune changes, the old one fades out slowly while the new one fades in */
+function musicScene(sc){if(MUS.scene===sc)return;MUS.scene=sc;if(!MUS.playing||MUS.cur===curTune())return;musicStop(2.6);musicStart(3.2);}
+/* Тохиргоо › Дуу: one tune for the app (data-tune), one for the 2D/3D chapters (data-gtune) */
+function tuneSet(t,game){if(t!=="taivan")t="khaldun";const k=game?"tuneGame":"tune";if(t===MUS[k])return;MUS[k]=t;
+  try{localStorage.setItem(game?"jalair-tune-game":"jalair-tune",t);}catch(e){}
+  const a=game?"gtune":"tune";document.querySelectorAll(`[data-${a}]`).forEach(b=>b.setAttribute("aria-pressed",String(b.dataset[a]===t)));
+  if(MUS.playing&&MUS.cur!==curTune()){musicStop();setTimeout(()=>musicStart(),350);}else if(MUS.on&&!MUS.playing)musicStart();}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-tune],[data-gtune]");if(!b)return;if(b.dataset.gtune)tuneSet(b.dataset.gtune,true);else tuneSet(b.dataset.tune);});
+/* the 2D and 3D chapters: their tune plays under them; in 2D it also follows the chapter's own sound button.
+   on=true: in a chapter, sound on (a tap, so the audio can wake up); false: muted, hold the tune; null: back in the app */
+function musicGame(on){MUS.hold=on===false;if(on===false){musicStop();MUS.scene="game";return;}
+  if(on)ensureAudio();musicScene(on===null?"app":"game");if(MUS.on&&!MUS.playing)musicStart(3.2);}
 /* fetch the Халдун ая file quietly after the page loads, so it is ready by the first tap */
 window.addEventListener("load",()=>setTimeout(()=>{if(MUS.on&&MUS.tune==="khaldun"&&!MUS.buf)khRaw().catch(()=>{MUS.raw=null;});},1200));
 /* a short soft pluck, kept for the little jingles */
@@ -3348,13 +3371,37 @@ function musicSet(on){MUS.on=on;try{localStorage.setItem("jalair-music",on?"on":
 const SPK_ON=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,
  SPK_OFF=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>`;
 function sndOn(){return !!(SFX.on||MUS.on);}
-function syncSndBtn(){const b=document.getElementById("sndBtn");if(!b)return;const on=sndOn();b.innerHTML=on?SPK_ON:SPK_OFF;b.setAttribute("aria-label",on?"Дуу унтраах":"Дуу асаах");b.title=on?"Дуу унтраах":"Дуу асаах";b.classList.toggle("off",!on);}
+function syncSndBtn(){const b=document.getElementById("sndBtn");if(!b)return;const on=sndOn();b.innerHTML=on?SPK_ON:SPK_OFF;b.setAttribute("aria-label",on?"Дуу (асаалттай)":"Дуу (унтраалттай)");b.title="Дуу";b.classList.toggle("off",!on);npSync();}
+/* the sound button opens a small card: what is playing now, Дуутай / Дуугүй, and a way to the tune settings */
+/* the song itself, on YouTube */
+const NP_YT="https://youtu.be/5Uwxg-vAB3w";
+const NP_NAME={khaldun:`<span data-notr>Egshiglyn - Whisper of the Heart</span> дууг`,taivan:"«Тайван тал» калимбын аялгууг"};
+function npText(){if(!sndOn())return "Дуу унтарсан байна.";if(!MUS.on)return "Дэвсгэр хөгжим унтраалттай байна. Тохиргооноос асааж болно.";
+  return `Та яг одоо <b>${NP_NAME[MUS.playing&&MUS.cur?MUS.cur:curTune()]}</b> сонсож байна`;}
+function npSync(){const p=document.getElementById("npPop");if(!p)return;const on=sndOn();
+  p.innerHTML=`<div class="np-now">${on&&MUS.on?`<span class="np-eq${MUS.playing?" on":""}" aria-hidden="true"><i></i><i></i><i></i></span>`:""}<p>${npText()}</p></div>
+  ${on&&MUS.on&&(MUS.playing&&MUS.cur?MUS.cur:curTune())==="khaldun"?`<a class="np-yt" href="${NP_YT}" target="_blank" rel="noopener" data-np-yt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8.5v7l6-3.5z" fill="currentColor"/></svg><span><span data-notr>YouTube</span> дээр сонсох</span></a>`:""}
+  <div class="seg" role="group" aria-label="Дуу"><button type="button" data-np="1" aria-pressed="${on}">Дуутай</button><button type="button" data-np="0" aria-pressed="${!on}">Дуугүй</button></div>
+  <a class="np-link" href="#privacy" data-np-set>Аялгуу солих ›</a>`;}
+function npPlace(){const p=document.getElementById("npPop"),b=document.getElementById("sndBtn");if(!p||!b)return;const r=b.getBoundingClientRect();
+  const w=p.offsetWidth||300;p.style.top=Math.round(r.bottom+8)+"px";p.style.right=Math.round(Math.max(12,Math.min(innerWidth-r.right-8,innerWidth-w-12)))+"px";}
+function npOut(e){if(e.target.closest&&e.target.closest("#npPop,#sndBtn"))return;npClose();}
+function npKey(e){if(e.key==="Escape")npClose();}
+function npClose(){const p=document.getElementById("npPop");if(!p)return;p.remove();document.removeEventListener("pointerdown",npOut,true);document.removeEventListener("keydown",npKey);
+  window.removeEventListener("resize",npPlace);window.removeEventListener("scroll",npPlace);const b=document.getElementById("sndBtn");if(b)b.setAttribute("aria-expanded","false");}
+function npOpen(){if(document.getElementById("npPop")){npClose();return;}const p=document.createElement("div");p.id="npPop";p.className="np-pop";p.setAttribute("role","dialog");p.setAttribute("aria-label","Дуу");
+  document.body.appendChild(p);npSync();npPlace();document.addEventListener("pointerdown",npOut,true);document.addEventListener("keydown",npKey);
+  window.addEventListener("resize",npPlace);window.addEventListener("scroll",npPlace,{passive:true});const b=document.getElementById("sndBtn");if(b)b.setAttribute("aria-expanded","true");}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#npPop [data-np],#npPop [data-np-set],#npPop [data-np-yt]");if(!t)return;
+  if(t.hasAttribute("data-np-yt")){setTimeout(npClose,0);return;}
+  if(t.hasAttribute("data-np-set")){npClose();setTimeout(()=>{const c=document.getElementById("sndCard");if(c)c.scrollIntoView({block:"center",behavior:"smooth"});},450);return;}
+  if((t.dataset.np==="1")!==sndOn())sndToggle();npSync();});
 function sndToggle(){if(sndOn()){try{localStorage.setItem("jalair-snd-prev",JSON.stringify({s:SFX.on,m:MUS.on}));}catch(e){}sfxSet(false);musicSet(false);toast("Дуу унтарлаа");}
   else{let pv=null;try{pv=JSON.parse(localStorage.getItem("jalair-snd-prev")||"null");}catch(e){}if(!pv||(!pv.s&&!pv.m))pv={s:true,m:true};ensureAudio();musicSet(!!pv.m);sfxSet(!!pv.s);toast("Дуу асаалаа");}syncSndBtn();}
 const NOTE_SVG=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>`;
 const NOTE_OFF_SVG=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path d="M3 3l18 18"/></svg>`;
 function musicBtn(cls){return `<button type="button" class="mbtn${cls?" "+cls:""}" data-music aria-pressed="${MUS.on}" aria-label="Дэвсгэр хөгжим">${MUS.on?NOTE_SVG:NOTE_OFF_SVG}</button>`;}
-function syncMusicBtns(){document.querySelectorAll("[data-music]").forEach(b=>{b.setAttribute("aria-pressed",String(MUS.on));b.innerHTML=MUS.on?NOTE_SVG:NOTE_OFF_SVG;});document.querySelectorAll("[data-music-sw]").forEach(c=>c.checked=MUS.on);}
+function syncMusicBtns(){document.querySelectorAll("[data-music]").forEach(b=>{b.setAttribute("aria-pressed",String(MUS.on));b.innerHTML=MUS.on?NOTE_SVG:NOTE_OFF_SVG;});document.querySelectorAll("[data-music-sw]").forEach(c=>c.checked=MUS.on);npSync();}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-music]");if(b){e.stopPropagation();musicSet(!MUS.on);}},true);
 document.addEventListener("change",e=>{if(e.target.matches&&e.target.matches("[data-music-sw]"))musicSet(e.target.checked);});
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-replay-intro]")){if(MUS.playing)musicStop();MUS.pos=0;try{splash(true);}catch(err){}}});
@@ -3607,7 +3654,7 @@ const SUN_SVG=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const MOON_SVG=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`;
 function renderThemeBtn(){syncSndBtn();const b=$("#themeBtn");b.innerHTML=isDark()?SUN_SVG:MOON_SVG;b.setAttribute("aria-label",isDark()?"Гэрэл горимд шилжих":"Харанхуй горимд шилжих");}
 $("#themeBtn").addEventListener("click",()=>setTheme(isDark()?"light":"dark"));
-$("#sndBtn").addEventListener("click",sndToggle);
+$("#sndBtn").addEventListener("click",npOpen);
 /* ---------- language: Mongolian is the original; any other language is translated on the fly.
    Inside Claude the page asks Claude (any language, typed or picked); elsewhere it uses Google's website translator. ---------- */
 const LANGS=[["mn","Монгол","Mongolian"],["en","English","English"],["ru","Русский","Russian"],["zh-CN","中文","Chinese"],["ko","한국어","Korean"],["ja","日本語","Japanese"],
@@ -6156,8 +6203,10 @@ function drawTeam(){
 
 /* ---------- settings ---------- */
 let delAsk=false;
-function themeCard(){return `<div class="card"><h3>Дуу</h3><div><label class="set"><span class="lbl"><b>Дэвсгэр хөгжим</b><span class="small muted">Апп нээгдэх үед доор сонгосон аялгуу тоглоно.</span></span><input class="sw" type="checkbox" data-music-sw ${MUS.on?"checked":""}></label>
-  <div style="padding-bottom:12px"><div class="seg" role="group" aria-label="Аялгуу">${[["khaldun","Халдун ая"],["taivan","Тайван тал"]].map(([k,t])=>`<button type="button" data-tune="${k}" aria-pressed="${MUS.tune===k}">${t}</button>`).join("")}</div></div>
+function tuneSeg(attr,cur,label){return `<div class="seg" role="group" aria-label="${label}">${[["khaldun",`<span data-notr>Whisper of the Heart</span>`],["taivan","Тайван тал"]].map(([k,t])=>`<button type="button" data-${attr}="${k}" aria-pressed="${cur===k}">${t}</button>`).join("")}</div>`;}
+function themeCard(){return `<div class="card" id="sndCard"><h3>Дуу</h3><div><label class="set"><span class="lbl"><b>Дэвсгэр хөгжим</b><span class="small muted">Апп дээр болон 2D, 3D тоглоомд тоглох аялгуугаа доороос сонгоно. Дуу: <span data-notr>Egshiglyn - Whisper of the Heart</span>.</span></span><input class="sw" type="checkbox" data-music-sw ${MUS.on?"checked":""}></label>
+  <div class="tune-pick"><span class="small muted">Апп дээр</span>${tuneSeg("tune",MUS.tune,"Апп дээрх аялгуу")}
+   <span class="small muted">2D, 3D тоглоомд (ороход аажмаар солигдоно)</span>${tuneSeg("gtune",MUS.tuneGame,"Тоглоомын аялгуу")}</div>
   <label class="set"><span class="lbl"><b>Дүрийн дуу</b><span class="small muted">Дүр дээр дарахад тус бүр өөрийн хоолойгоор жиргэнэ. Апп нээгдэх үед ч хөөрхөн чимээ гарна.</span></span><input class="sw" type="checkbox" data-sfx-sw ${SFX.on?"checked":""}></label></div>
   <button type="button" class="btn soft block" data-replay-intro style="margin-top:12px">Нээлтийн хөдөлгөөнийг дахин үзэх</button></div>${setTopCards()}<div class="card"><h3>Хэл</h3><button type="button" class="btn soft block" data-langsheet>Хэл солих</button></div><div class="card"><h3>Харагдах байдал</h3><div class="seg" role="group" aria-label="Горим">${[["system","Систем"],["light","Гэрэл"],["dark","Харанхуй"]].map(([k,t])=>`<button type="button" data-th="${k}" aria-pressed="${themePref===k}">${t}</button>`).join("")}</div></div>`;}
 function myChCard(){const c=CH_BY[myCh()],p=ST.profile,has=!!(p&&p.ch);
@@ -7535,7 +7584,7 @@ function storyOpen(n,mode){if(S3)return;const ch=STORY.find(c=>c.n===n);if(!ch)r
   document.body.appendChild(el);document.body.classList.add("noscroll");
   try{const bx=$(".s3-box",el),fit=()=>el.style.setProperty("--boxh",(bx.offsetHeight+12)+"px");fit();new ResizeObserver(fit).observe(bx);}catch(e){}
   const S={ch,el,g,h:hs[0],h2:hs[1],i:-1,cam:{pos:CAM0.slice(),yaw:0,pitch:0},tw:[],t0:performance.now(),env:clone(SKY3[ch.sky]),raf:0,task:null,done:false,horseRun:0,surs:[],drag:null,on:true};
-  S3=S;const a0=yp(S.cam.pos,S3LOOK.ger);S.cam.yaw=a0.yaw;S.cam.pitch=a0.pitch;
+  S3=S;musicGame(true);el.addEventListener("pointerdown",()=>ensureAudio(),true);const a0=yp(S.cam.pos,S3LOOK.ger);S.cam.yaw=a0.yaw;S.cam.pitch=a0.pitch;
   /* input works from the first moment */
   /* looking around: one finger drags the view (a finger on the joystick is ignored), the view turns the way the finger moves, eased each frame */
   el.addEventListener("pointerdown",e=>{if(S.drag||e.target.closest("button,.s3-box,.s3-cast,.s3-joy,.s3-end,.s3-wish,.s3-acts"))return;const L=S.look||S.cam;
@@ -7595,7 +7644,7 @@ function storyOpen(n,mode){if(S3)return;const ch=STORY.find(c=>c.n===n);if(!ch)r
 }
 function storyClose(){const S=S3;if(!S)return;S.on=false;clearInterval(S.archT);S.rad=null;clearTimeout(S.spT);S.spk=null;clearTimeout(S.coT);clearInterval(S.coW);clearTimeout(S.rideT);clearTimeout(S.wishT);clearTimeout(S.eatT);cancelAnimationFrame(S.raf);window.removeEventListener("pointermove",S.pm);window.removeEventListener("pointerup",S.pu);window.removeEventListener("pointercancel",S.pc);window.removeEventListener("keydown",S.kd);window.removeEventListener("keyup",S.ku);
   S.el.classList.add("out");setTimeout(()=>{if(S.W){try{const x=S.W.gl.getExtension("WEBGL_lose_context");if(x)x.loseContext();}catch(e){}}S.el.remove();},RM?0:300);
-  document.body.classList.remove("noscroll");S3=null;if(current==="today")renderToday();}
+  document.body.classList.remove("noscroll");S3=null;musicGame(null);if(current==="today")renderToday();}
 /* the flock grazes, wanders a little, and trots away if you walk right up to it */
 /* animals keep out of solid things (no door for them), and the flock and herd step around each other */
 function w3AnimalCollide(x,z,r){const out=(cx,cz,rr)=>{const dx=x-cx,dz=z-cz,d=Math.hypot(dx,dz);if(d<rr){const k=d>1e-4?rr/d:0;x=d>1e-4?cx+dx*k:cx+rr;z=d>1e-4?cz+dz*k:cz;}};

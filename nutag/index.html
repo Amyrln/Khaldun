@@ -56,6 +56,7 @@
       <div class="seg" id="tSeg" role="group" aria-label="Цаг">
         <button type="button" data-t="cycle">Солигдоно</button><button type="button" data-t="dawn">Өглөө</button><button type="button" data-t="day">Өдөр</button><button type="button" data-t="night">Орой</button></div></div>
     <label class="row"><span>Байгалийн чимээ</span><input type="checkbox" id="sndSw" class="sw"></label>
+    <label class="row"><span>Хөгжим</span><input type="checkbox" id="musSw" class="sw"></label>
     <label class="row"><span>Хэмжилт харуулах</span><input type="checkbox" id="perfSw" class="sw"></label>
     <div class="row"><span>Гэр</span><button type="button" class="pill" id="gbReset">Гэрээ шинээр барих</button></div>
     <p class="note" id="gbNote" aria-live="polite"></p>
@@ -340,7 +341,7 @@
 window.NUTAG_GATE={need:15,back:(function(){try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&/turshilt/i.test(r))return r.split("#")[0]+"#today";}catch(e){}return "../index.html#today";})(),key:"jalair.nutag.ok"};
 (function(){var ok=location.hash==="#jalair";try{ok=ok||localStorage.getItem(NUTAG_GATE.key)==="1";}catch(e){}   /* хадгалалт ажиллахгүй хөтөч дээр ч апп-аас орж ирсэн бол нээнэ */
   if(!ok){document.getElementById("gate").hidden=false;var l=document.getElementById("load");if(l)l.hidden=true;return;}
-  ["js/quality.js", "js/world.js", "js/map.js", "js/perf.js", "js/sound.js", "js/gifts.js", "js/help.js", "js/nutag.js"].forEach(function(s){var e=document.createElement("script");e.src=s;e.async=false;document.body.appendChild(e);});})();
+  ["js/quality.js", "js/world.js", "js/map.js", "js/perf.js", "js/sound.js", "js/music.js", "js/gifts.js", "js/help.js", "js/nutag.js"].forEach(function(s){var e=document.createElement("script");e.src=s;e.async=false;document.body.appendChild(e);});})();
 </script>
 </body>
 </html>
