@@ -3261,10 +3261,13 @@ function rhero(o){o=o||{};return `<div class="rhero${o.cls?" "+o.cls:""}">${skyB
   <div class="rh-text"><p class="rh-motto">Эрүүл биед<br>саруул ухаан</p><span class="rh-mn" aria-hidden="true">ᠬᠠᠯᠳᠤᠨ</span></div>
   ${o.chars?`<div class="rh-chars">${chGroup(CH10.map(c=>c.id),{size:o.size||58,jitter:10})}</div>`:""}</div>`;}
 
-/* ---------- background music: "Тайван тал" — a calm kalimba tune, made in the browser, no files.
-   A kalimba sings a D-major pentatonic melody over its own soft arpeggios, a warm bowed drone (like a far-away khuur)
+/* ---------- background music. Two tunes, picked in Тохиргоо › Дуу:
+   "Халдун ая" (default) — an instrumental song, a 90.6 s seamless loop played from khaldun-ay.mp3;
+   "Тайван тал" — a calm kalimba tune, made in the browser, no files. It also plays if the file can't load (offline).
+   Тайван тал: a kalimba sings a D-major pentatonic melody over its own soft arpeggios, a warm bowed drone (like a far-away khuur)
    and a quiet low bass, in a wide, gentle room. 68 bpm, no drums, nothing sharp; 16 bars (~56 s) that loop. */
-const MUS={on:(()=>{try{return localStorage.getItem("jalair-music")!=="off";}catch(e){return true;}})(),playing:false,timer:0,t:0,bar:0,out:null,rev:null,resume:false};
+const MUS={on:(()=>{try{return localStorage.getItem("jalair-music")!=="off";}catch(e){return true;}})(),tune:(()=>{try{return localStorage.getItem("jalair-tune")==="taivan"?"taivan":"khaldun";}catch(e){return "khaldun";}})(),
+  playing:false,timer:0,t:0,bar:0,out:null,rev:null,resume:false,src:null,gen:0,pos:0,k0:0,raw:null,buf:null};
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 const KM={bpm:68,
   /* per bar: arpeggio tones (kalimba, low), drone tones (bowed pad), bass root */
@@ -3303,11 +3306,33 @@ function kmBar(i,t0){const b=kmBeat(),k=i%16,C=KM.ch[k],T=p=>t0+p*b,pass=Math.fl
   if(k%2===0){C[1].forEach(m=>kmPad(m,T(0),b*8,.03));kmBass(C[2],T(0),b*7.5);}
   let p=0;KM.mel[k].forEach(([m,d])=>{if(m)kmTine(pass%2===1&&p===0&&d>=2?m-12:m,T(p),.38,(m-74)*.03,.42);p+=d;});}
 function musicTick(){if(!MUS.playing||!AC)return;const bd=kmBeat()*4;while(MUS.t<AC.currentTime+.8){kmBar(MUS.bar,MUS.t);MUS.t+=bd;MUS.bar++;}}
+/* Халдун ая: the file holds the loop with 1 s of its own end before it and 1 s of its start after it,
+   so looping from KH.a to KH.a+KH.len is seamless even when a browser's MP3 decoder adds a little delay.
+   It loads only when this tune plays; stopping remembers the spot, so it carries on from there. */
+const KH={url:"khaldun-ay.mp3",a:1,len:3993963/44100,vol:.45};
+function khRaw(){if(!MUS.raw)MUS.raw=fetch(KH.url).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.arrayBuffer();});return MUS.raw;}
+function khBuf(){if(MUS.buf)return Promise.resolve(MUS.buf);
+  return khRaw().then(ab=>new Promise((ok,no)=>{const p=AC.decodeAudioData(ab.slice(0),ok,no);if(p&&p.catch)p.catch(no);})).then(b=>{MUS.buf=b;MUS.raw=null;return b;});}
+function khPlay(g){MUS.out.gain.value=.7;
+  khBuf().then(b=>{if(!MUS.playing||MUS.gen!==g)return;
+    const s=AC.createBufferSource(),v=AC.createGain(),t=AC.currentTime+.05;s.buffer=b;s.loop=true;s.loopStart=KH.a;s.loopEnd=KH.a+KH.len;
+    v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(KH.vol,t+2.2);s.connect(v);v.connect(MUS.out);
+    s.start(t,KH.a+MUS.pos%KH.len);MUS.src=s;MUS.k0=t-MUS.pos;})
+  .catch(()=>{MUS.raw=null;if(MUS.playing&&MUS.gen===g)kmGo();});}
+function kmGo(){MUS.out.gain.setValueAtTime(.0001,AC.currentTime);MUS.out.gain.exponentialRampToValueAtTime(.7,AC.currentTime+2.2);
+  MUS.rev=kmRev();MUS.t=AC.currentTime+.2;MUS.bar=0;musicTick();MUS.timer=setInterval(musicTick,200);}
 function musicStart(){if(!MUS.on||MUS.playing)return;ensureAudio();if(!AC)return;
-  MUS.out=AC.createGain();MUS.out.gain.setValueAtTime(.0001,AC.currentTime);MUS.out.gain.exponentialRampToValueAtTime(.7,AC.currentTime+2.2);MUS.out.connect(AC.destination);
-  MUS.rev=kmRev();MUS.t=AC.currentTime+.2;MUS.bar=0;MUS.playing=true;musicTick();MUS.timer=setInterval(musicTick,200);syncMusicBtns();}
-function musicStop(){if(!MUS.playing)return;MUS.playing=false;clearInterval(MUS.timer);const o=MUS.out;
-  try{o.gain.cancelScheduledValues(AC.currentTime);o.gain.setValueAtTime(Math.max(o.gain.value,.0001),AC.currentTime);o.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.8);setTimeout(()=>{try{o.disconnect();}catch(e){}},1000);}catch(e){}syncMusicBtns();}
+  MUS.out=AC.createGain();MUS.out.connect(AC.destination);MUS.playing=true;MUS.gen++;
+  if(MUS.tune==="khaldun")khPlay(MUS.gen);else kmGo();syncMusicBtns();}
+function musicStop(){if(!MUS.playing)return;MUS.playing=false;MUS.gen++;clearInterval(MUS.timer);const o=MUS.out,s=MUS.src;MUS.src=null;
+  if(s)MUS.pos=Math.max(0,AC.currentTime-MUS.k0)%KH.len;
+  try{o.gain.cancelScheduledValues(AC.currentTime);o.gain.setValueAtTime(Math.max(o.gain.value,.0001),AC.currentTime);o.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.8);setTimeout(()=>{try{o.disconnect();}catch(e){}try{s&&s.stop();}catch(e){}},1000);}catch(e){}syncMusicBtns();}
+function tuneSet(t){if(t!=="taivan")t="khaldun";if(t===MUS.tune)return;MUS.tune=t;try{localStorage.setItem("jalair-tune",t);}catch(e){}
+  document.querySelectorAll("[data-tune]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tune===t)));
+  if(MUS.playing){musicStop();setTimeout(musicStart,350);}else if(MUS.on)musicStart();}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-tune]");if(b)tuneSet(b.dataset.tune);});
+/* fetch the Халдун ая file quietly after the page loads, so it is ready by the first tap */
+window.addEventListener("load",()=>setTimeout(()=>{if(MUS.on&&MUS.tune==="khaldun"&&!MUS.buf)khRaw().catch(()=>{MUS.raw=null;});},1200));
 /* a short soft pluck, kept for the little jingles */
 function mPluck(f,t,vol,d){const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),g2=AC.createGain();o.type="triangle";o.frequency.value=f;o2.type="sine";o2.frequency.value=f*2;g2.gain.value=.22;
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);o2.connect(g2);g2.connect(g);g.connect(MUS.out);o.start(t);o2.start(t);o.stop(t+d+.05);o2.stop(t+d+.05);}
@@ -3326,7 +3351,7 @@ function musicBtn(cls){return `<button type="button" class="mbtn${cls?" "+cls:""
 function syncMusicBtns(){document.querySelectorAll("[data-music]").forEach(b=>{b.setAttribute("aria-pressed",String(MUS.on));b.innerHTML=MUS.on?NOTE_SVG:NOTE_OFF_SVG;});document.querySelectorAll("[data-music-sw]").forEach(c=>c.checked=MUS.on);}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-music]");if(b){e.stopPropagation();musicSet(!MUS.on);}},true);
 document.addEventListener("change",e=>{if(e.target.matches&&e.target.matches("[data-music-sw]"))musicSet(e.target.checked);});
-document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-replay-intro]")){if(MUS.playing)musicStop();try{splash(true);}catch(err){}}});
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-replay-intro]")){if(MUS.playing)musicStop();MUS.pos=0;try{splash(true);}catch(err){}}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(MUS.playing){musicStop();MUS.resume=true;}}else if(MUS.resume){MUS.resume=false;musicStart();}});
 /* browsers only allow sound after a tap: the first tap anywhere starts the tune when it is on */
 document.addEventListener("pointerdown",function firstTap(e){if(e.target.closest&&e.target.closest("[data-music]"))return;document.removeEventListener("pointerdown",firstTap,true);if(e.target.closest&&e.target.closest(".splash"))return;
@@ -6125,7 +6150,8 @@ function drawTeam(){
 
 /* ---------- settings ---------- */
 let delAsk=false;
-function themeCard(){return `<div class="card"><h3>Дуу</h3><div><label class="set"><span class="lbl"><b>Дэвсгэр хөгжим</b><span class="small muted">Апп нээгдэх үед калимбын тайван аялгуу тоглоно.</span></span><input class="sw" type="checkbox" data-music-sw ${MUS.on?"checked":""}></label>
+function themeCard(){return `<div class="card"><h3>Дуу</h3><div><label class="set"><span class="lbl"><b>Дэвсгэр хөгжим</b><span class="small muted">Апп нээгдэх үед доор сонгосон аялгуу тоглоно.</span></span><input class="sw" type="checkbox" data-music-sw ${MUS.on?"checked":""}></label>
+  <div style="padding-bottom:12px"><div class="seg" role="group" aria-label="Аялгуу">${[["khaldun","Халдун ая"],["taivan","Тайван тал"]].map(([k,t])=>`<button type="button" data-tune="${k}" aria-pressed="${MUS.tune===k}">${t}</button>`).join("")}</div></div>
   <label class="set"><span class="lbl"><b>Дүрийн дуу</b><span class="small muted">Дүр дээр дарахад тус бүр өөрийн хоолойгоор жиргэнэ. Апп нээгдэх үед ч хөөрхөн чимээ гарна.</span></span><input class="sw" type="checkbox" data-sfx-sw ${SFX.on?"checked":""}></label></div>
   <button type="button" class="btn soft block" data-replay-intro style="margin-top:12px">Нээлтийн хөдөлгөөнийг дахин үзэх</button></div>${setTopCards()}<div class="card"><h3>Хэл</h3><button type="button" class="btn soft block" data-langsheet>Хэл солих</button></div><div class="card"><h3>Харагдах байдал</h3><div class="seg" role="group" aria-label="Горим">${[["system","Систем"],["light","Гэрэл"],["dark","Харанхуй"]].map(([k,t])=>`<button type="button" data-th="${k}" aria-pressed="${themePref===k}">${t}</button>`).join("")}</div></div>`;}
 function myChCard(){const c=CH_BY[myCh()],p=ST.profile,has=!!(p&&p.ch);
